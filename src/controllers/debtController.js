@@ -37,7 +37,6 @@ export async function getAllDebts(req, res) {
   }
 }
 
-
 // ✅ CRUD - GET /:id
 export async function getDebtById(req, res) {
   try {
@@ -58,7 +57,7 @@ export async function getDebtById(req, res) {
 export async function updateDebtById(req, res) {
   try {
     const { id } = req.params;
-    const updatedDebt = await updateDebtByIdService(id, req.body);
+    const updatedDebt = await updateDebtByIdService(id, req.body, { partial: true });
 
     res.status(200).json({
       message: "Debt updated successfully",
@@ -71,7 +70,6 @@ export async function updateDebtById(req, res) {
     res.status(400).json({ error: error.message });
   }
 }
-
 
 // ✅ CRUD - DELETE 
 export async function removeDebt(req, res) {
@@ -89,8 +87,26 @@ export async function removeDebt(req, res) {
   }
 }
 
+// ✅ CRUD - PATCH /:id (actualización parcial)
+export async function patchDebtById(req, res) {
+  try {
+    const { id } = req.params;
+
+    const updatedDebt = await updateDebtByIdService(id, req.body, { partial: true });
+
+    res.status(200).json({
+      message: "Debt patched successfully",
+      data: updatedDebt,
+    });
+  } catch (error) {
+    if (error.message === "Debt not found") {
+      return res.status(404).json({ error: error.message });
+    }
+    res.status(400).json({ error: error.message });
+  }
+}
+
 // ✅ PATCH /api/debts/:id/restore
-// ✅ PATCH /:id/restore
 export async function restoreDebtController(req, res) {
   try {
     const { id } = req.params;

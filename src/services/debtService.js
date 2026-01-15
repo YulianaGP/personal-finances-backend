@@ -1,7 +1,15 @@
 // services/debtService.js
 import prisma from "../config/db.js";
 
-// ✅ 1. Función para normalizar nombres (acentos, mayúsculas, espacios)
+// Constants
+const MONEY_TOLERANCE = 0.01; // 1 cent tolerance for decimal comparisons
+
+// Format money value to string with 2 decimals (required by Prisma Decimal type)
+function formatMoneyToString(value) {
+  return Number(value).toFixed(2);
+}
+
+// Normalize names (remove accents, lowercase, trim spaces)
 function normalizeName(name) {
   return String(name || "")
     .normalize("NFD") // separa caracteres y acentos
@@ -36,12 +44,12 @@ export async function createDebtWithContributors(payload) {
 
   // Validaciones básicas
   if (!debt_name) throw new Error("debt_name is required");
-if (!creditor_name) throw new Error("creditor_name is required");
-if (!validatePositiveMoney(amount)) throw new Error("amount is required and must be a positive number");
-if (!Number.isInteger(Number(installments)) || Number(installments) <= 0) throw new Error("installments must be a positive integer");
-if (!validatePositiveMoney(monthly_payment)) throw new Error("monthly_payment is required and must be positive");
-if (!due_date) throw new Error("due_date is required");
-if (!Array.isArray(contributors) || contributors.length < 1) throw new Error("At least one contributor is required");
+  if (!creditor_name) throw new Error("creditor_name is required");
+  if (!validatePositiveMoney(amount)) throw new Error("amount is required and must be a positive number");
+  if (!Number.isInteger(Number(installments)) || Number(installments) <= 0) throw new Error("installments must be a positive integer");
+  if (!validatePositiveMoney(monthly_payment)) throw new Error("monthly_payment is required and must be positive");
+  if (!due_date) throw new Error("due_date is required");
+  if (!Array.isArray(contributors) || contributors.length < 1) throw new Error("At least one contributor is required");
 
   // Validar due_date
   const parsedDue = new Date(due_date);

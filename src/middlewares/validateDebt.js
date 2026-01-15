@@ -1,4 +1,4 @@
-// 📌 Importar reglas centralizadas
+// Import centralized validation rules
 import {
   validateRequiredFields,
   validateAmount,
@@ -7,10 +7,9 @@ import {
   validateDueDate,
   validateContributors,
   validateContributionsMatchAmount,
-  validatePaymentConsistency,
 } from "./debtRules.js";
 
-// ✅ Middleware para crear una deuda nueva (POST)
+// Middleware for creating a new debt (POST)
 export default function validateDebt(req, res, next) {
   const {
     debt_name,
@@ -63,17 +62,17 @@ export default function validateDebt(req, res, next) {
     return res.status(400).json({ error: contributorsError });
   }
 
-  // --- 7. Validar suma de aportes =
-  const contributionSumError = validateContributionsMatchAmount(contributors, amount);
+  // --- 7. Validate sum of contributions = monthly_payment ---
+  const contributionSumError = validateContributionsMatchAmount(contributors, monthly_payment);
   if (contributionSumError) {
     return res.status(400).json({ error: contributionSumError });
   }
 
-  // --- 8. Validar consistencia cuotas * pago mensual ≈ amount ---
-  const consistencyError = validatePaymentConsistency(amount, installments, monthly_payment);
-  if (consistencyError) {
-    return res.status(400).json({ error: consistencyError });
-  }
+  // --- 8. Consistency validation disabled (amount can differ due to interest) ---
+  // const consistencyError = validatePaymentConsistency(amount, installments, monthly_payment);
+  // if (consistencyError) {
+  //   return res.status(400).json({ error: consistencyError });
+  // }
 
   next();
 }

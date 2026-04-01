@@ -1,0 +1,613 @@
+openapi: 3.0.3
+info:
+  title: Personal Finances API
+  description: |
+    REST API for managing personal debts and payments with contributor tracking.
+
+    **Key features:**
+    - Debt management with contributor assignment (many-to-many)
+    - Soft delete & restore for safe data management
+    - Payment tracking per debt and contributor
+    - Contribution reports and filtering by contributor
+  version: 1.0.0
+  contact:
+    name: Yuliana Girón Palacios
+    url: https://github.com/YulianaGP
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:3000
+    description: Local development
+
+tags:
+  - name: Debts
+    description: Debt management with soft delete and contributor assignment
+  - name: Payments
+    description: Payment tracking per debt and contributor
+
+paths:
+  /api/debts:
+    get:
+      tags: [Debts]
+      summary: List all debts
+      responses:
+        "200":
+          description: List of debts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Debt"
+
+    post:
+      tags: [Debts]
+      summary: Create a new debt
+      description: |
+        Creates a debt with its contributors. Contributors are created automatically if they don't exist.
+        The sum of contributor amounts must equal `monthly_payment`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDebtInput"
+            example:
+              debt_name: "Banco Continental - Préstamo personal"
+              creditor_name: "Banco Continental"
+              amount: 10000.00
+              installments: 24
+              monthly_payment: 500.00
+              due_date: "2027-01-15"
+              contributors:
+                - name: "Yuliana"
+                  contribution_amount: 300.00
+                - name: "Carlos"
+                  contribution_amount: 200.00
+      responses:
+        "201":
+          description: Debt created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DebtDetail"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          description: Debt name already exists
+
+  /api/debts/active:
+    get:
+      tags: [Debts]
+      summary: List active debts only
+      description: Returns only debts where is_deleted is false.
+      responses:
+        "200":
+          description: List of active debts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Debt"
+
+  /api/debts/contributions/report:
+    get:
+      tags: [Debts]
+      summary: Contributions report
+      description: Returns how much each contributor owes across all debts.
+      responses:
+        "200":
+          description: Contributions report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        contributor:
+                          type: string
+                          example: "Yuliana"
+                        total_contribution:
+                          type: number
+                          example: 1500.00
+                        debts_count:
+                          type: integer
+                          example: 3
+
+  /api/debts/by-contributor/{id}:
+    get:
+      tags: [Debts]
+      summary: Get debts by contributor
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Debts for the contributor
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Debt"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/debts/{id}:
+    get:
+      tags: [Debts]
+      summary: Get debt by ID
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Full debt detail with contributors and payments
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DebtDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      tags: [Debts]
+      summary: Full update of a debt
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDebtInput"
+      responses:
+        "200":
+          description: Debt updated
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      tags: [Debts]
+      summary: Partial update of a debt
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchDebtInput"
+      responses:
+        "200":
+          description: Debt partially updated
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      tags: [Debts]
+      summary: Soft delete a debt
+      description: Sets is_deleted to true. Record is preserved and can be restored.
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Debt soft-deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    example: "Debt soft-deleted successfully"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/debts/{id}/restore:
+    patch:
+      tags: [Debts]
+      summary: Restore a soft-deleted debt
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Debt restored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    example: "Debt restored successfully"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/payments:
+    get:
+      tags: [Payments]
+      summary: List all payments
+      parameters:
+        - name: debtId
+          in: query
+          schema:
+            type: integer
+        - name: contributorId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, PAID]
+      responses:
+        "200":
+          description: List of payments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Payment"
+
+    post:
+      tags: [Payments]
+      summary: Create a new payment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePaymentInput"
+            example:
+              debtId: 1
+              contributorId: 2
+              amount: 300.00
+              status: "PAID"
+      responses:
+        "201":
+          description: Payment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/payments/debt/{debtId}:
+    get:
+      tags: [Payments]
+      summary: Get payments by debt ID
+      parameters:
+        - name: debtId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Payments for the debt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Payment"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/payments/{id}:
+    get:
+      tags: [Payments]
+      summary: Get payment by ID
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Payment detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      tags: [Payments]
+      summary: Update payment status or amount
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePaymentInput"
+      responses:
+        "200":
+          description: Payment updated
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      tags: [Payments]
+      summary: Delete payment
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Payment deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  parameters:
+    IdParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            success: false
+            error: "Resource not found"
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            success: false
+            error: "debt_name is required"
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+
+    Debt:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        debt_name:
+          type: string
+          example: "Banco Continental - Préstamo personal"
+        creditor_name:
+          type: string
+          example: "Banco Continental"
+        amount:
+          type: number
+          example: 10000.00
+        installments:
+          type: integer
+          example: 24
+        monthly_payment:
+          type: number
+          example: 500.00
+        due_date:
+          type: string
+          format: date-time
+        is_deleted:
+          type: boolean
+          example: false
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    DebtDetail:
+      allOf:
+        - $ref: "#/components/schemas/Debt"
+        - type: object
+          properties:
+            contributors:
+              type: array
+              items:
+                type: object
+                properties:
+                  contributor:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      name:
+                        type: string
+                        example: "Yuliana"
+                  contribution_amount:
+                    type: number
+                    example: 300.00
+                  is_primary:
+                    type: boolean
+            payments:
+              type: array
+              items:
+                $ref: "#/components/schemas/Payment"
+
+    CreateDebtInput:
+      type: object
+      required:
+        - debt_name
+        - creditor_name
+        - amount
+        - installments
+        - monthly_payment
+        - due_date
+        - contributors
+      properties:
+        debt_name:
+          type: string
+          description: Must be unique
+        creditor_name:
+          type: string
+        amount:
+          type: number
+        installments:
+          type: integer
+        monthly_payment:
+          type: number
+          description: Must equal sum of all contributor amounts
+        due_date:
+          type: string
+          format: date
+        contributors:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [name, contribution_amount]
+            properties:
+              name:
+                type: string
+              contribution_amount:
+                type: number
+
+    UpdateDebtInput:
+      type: object
+      properties:
+        creditor_name:
+          type: string
+        amount:
+          type: number
+        installments:
+          type: integer
+        monthly_payment:
+          type: number
+        due_date:
+          type: string
+          format: date
+
+    PatchDebtInput:
+      type: object
+      properties:
+        creditor_name:
+          type: string
+        amount:
+          type: number
+        installments:
+          type: integer
+        monthly_payment:
+          type: number
+        due_date:
+          type: string
+          format: date
+
+    Payment:
+      type: object
+      properties:
+        id:
+          type: integer
+        debtId:
+          type: integer
+        contributorId:
+          type: integer
+        amount:
+          type: number
+          example: 300.00
+        payment_date:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [PENDING, PAID]
+          example: PAID
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreatePaymentInput:
+      type: object
+      required: [debtId, contributorId, amount]
+      properties:
+        debtId:
+          type: integer
+        contributorId:
+          type: integer
+        amount:
+          type: number
+        status:
+          type: string
+          enum: [PENDING, PAID]
+          default: PENDING
+
+    UpdatePaymentInput:
+      type: object
+      properties:
+        amount:
+          type: number
+        status:
+          type: string
+          enum: [PENDING, PAID]
+        payment_date:
+          type: string
+          format: date-time

@@ -94,7 +94,7 @@ personal-finances-backend/
 | Method | Endpoint | Description |
 |---|---|---|
 | GET | `/api/debts` | List all debts |
-| GET | `/api/debts/active` | Active debts only (`is_deleted = false`) |
+| GET | `/api/debts/active` | List active debts only (`is_deleted = false`) |
 | GET | `/api/debts/contributions/report` | Contribution totals per contributor |
 | GET | `/api/debts/by-contributor/:id` | Debts assigned to a contributor |
 | GET | `/api/debts/:id` | Full debt detail with contributors and payments |
